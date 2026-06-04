@@ -72,7 +72,49 @@ TextLayoutAlgorithm::TextLayoutAlgorithm(
 
     if (!isSpanStringMode) {
         if (!spans.empty()) {
-            spans_.emplace_back(std::move(spans));
+            // Split spans at newline boundaries so that \n produces proper
+            // paragraph breaks.  On CROSS_PLATFORM (Android) the Skia paragraph
+            // builder does not interpret \n as a hard line break, so we handle
+            // it here by splitting each span into sub-spans grouped into
+            // separate paragraphs — the same approach the SpanString path uses.
+            bool hasNewline = false;
+            for (const auto& span : spans) {
+                if (span && span->content.find(u'\n') != std::u16string::npos) {
+                    hasNewline = true;
+                    break;
+                }
+            }
+            if (!hasNewline) {
+                spans_.emplace_back(std::move(spans));
+            } else {
+                std::list<RefPtr<SpanItem>> currentGroup;
+                for (auto it = spans.begin(); it != spans.end(); ++it) {
+                    auto span = *it;
+                    if (!span) {
+                        continue;
+                    }
+                    auto& content = span->content;
+                    size_t pos = 0;
+                    size_t next;
+                    while ((next = content.find(u'\n', pos)) != std::u16string::npos) {
+                        auto newSpan = span->GetSameStyleSpanItem();
+                        newSpan->content = content.substr(pos, next - pos + 1);
+                        newSpan->SetNeedRemoveNewLine(true);
+                        currentGroup.push_back(newSpan);
+                        spans_.emplace_back(std::move(currentGroup));
+                        currentGroup = {};
+                        pos = next + 1;
+                    }
+                    if (pos < content.length()) {
+                        auto newSpan = span->GetSameStyleSpanItem();
+                        newSpan->content = content.substr(pos);
+                        currentGroup.push_back(newSpan);
+                    }
+                }
+                if (!currentGroup.empty()) {
+                    spans_.emplace_back(std::move(currentGroup));
+                }
+            }
         }
         return;
     }
@@ -748,6 +790,55 @@ bool TextLayoutAlgorithm::UpdateSingleParagraph(LayoutWrapper* layoutWrapper, Pa
     CHECK_NULL_RETURN(paragraph, false);
     auto textStyleTmp = textStyle;
     textStyleTmp.ResetTextBaselineOffset();
+    // On CROSS_PLATFORM the Skia paragraph builder does not interpret \n as a
+    // hard line break.  Split content at \n and create a separate paragraph
+    // for each line so they stack vertically.
+    if (!externalParagraph && !pattern->NeedShowAIDetect() && !pattern->IsDragging() &&
+        content.find(u'\n') != std::u16string::npos) {
+        size_t pos = 0;
+        size_t next;
+        int32_t offset = 0;
+        bool first = true;
+        while ((next = content.find(u'\n', pos)) != std::u16string::npos) {
+            auto segment = content.substr(pos, next - pos);
+            auto linePara = first ? paragraph : Paragraph::Create(paraStyle, FontCollection::Current());
+            CHECK_NULL_RETURN(linePara, false);
+            linePara->PushStyle(textStyleTmp);
+            auto segValue = segment;
+            StringUtils::TransformStrCase(segValue, static_cast<int32_t>(textStyle.GetTextCase()));
+            UtfUtils::HandleInvalidUTF16(reinterpret_cast<uint16_t*>(segValue.data()), segValue.length(), 0);
+            linePara->AddText(segValue);
+            linePara->Build();
+            ParagraphUtil::ApplyIndent(paraStyle, linePara, maxWidth, textStyle, GetIndentMaxWidth(maxWidth));
+            paragraphManager_->AddParagraph({ .paragraph = linePara,
+                .paragraphStyle = paraStyle,
+                .start = offset,
+                .end = offset + static_cast<int32_t>(segment.length()) });
+            offset += static_cast<int32_t>(segment.length()) + 1;
+            pos = next + 1;
+            first = false;
+        }
+        if (pos < content.length()) {
+            auto segment = content.substr(pos);
+            auto linePara = first ? paragraph : Paragraph::Create(paraStyle, FontCollection::Current());
+            CHECK_NULL_RETURN(linePara, false);
+            linePara->PushStyle(textStyleTmp);
+            auto segValue = segment;
+            StringUtils::TransformStrCase(segValue, static_cast<int32_t>(textStyle.GetTextCase()));
+            UtfUtils::HandleInvalidUTF16(reinterpret_cast<uint16_t*>(segValue.data()), segValue.length(), 0);
+            linePara->AddText(segValue);
+            linePara->Build();
+            ParagraphUtil::ApplyIndent(paraStyle, linePara, maxWidth, textStyle, GetIndentMaxWidth(maxWidth));
+            paragraphManager_->AddParagraph({ .paragraph = linePara,
+                .paragraphStyle = paraStyle,
+                .start = offset,
+                .end = offset + static_cast<int32_t>(segment.length()) });
+        }
+        if (paragraph) {
+            CreateOrUpdateTextEffect(oldParagraph, paragraph, pattern, content);
+        }
+        return true;
+    }
     paragraph->PushStyle(textStyleTmp);
     if (pattern->NeedShowAIDetect()) {
         UpdateParagraphForAISpan(textStyle, layoutWrapper, paragraph);
