@@ -1317,3 +1317,12 @@ ohos_abc("shape") {
   subsystem_name = ace_engine_subsystem
   part_name = ace_engine_part
 }
+
+ohos_abc("settings") {
+  sources = [ "engine/jsSettings.js" ]
+  output_name = "settings"
+  install_images = [ "system" ]
+  module_install_dir = "etc/abc/arkui"
+  subsystem_name = ace_engine_subsystem
+  part_name = ace_engine_part
+}
