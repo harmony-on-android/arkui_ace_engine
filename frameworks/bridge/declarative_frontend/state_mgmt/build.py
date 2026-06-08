@@ -16,18 +16,15 @@
 # Description
 #
 # This script is invoked by the build system and does not need to be executed directly by the developer.
-# First, it checks if --release is provided as an argument. This is the only allowed type for stateMgmt that is included in the build image.
-# It then verifies if the node_modules folder exists. If not, npm install is executed.
-# Afterward, npm run build_release is performed, which also generates generateGni.js
-# The files_to_watch.gni file contains a list of input files from tsconfig.base.json.
-# When any of these files are modified, the build system triggers this script to regenerate stateMgmt.js.
+# It is called after state_mgmt_npm_install (managed by GN) ensures node_modules are ready.
+# It runs npm run build_release to compile TypeScript to distRelease/stateMgmt.js,
+# then copies the result to the GN output directory with size validation.
 
 import os
 import sys
 import time
 import shutil
 import subprocess
-import re
 
 
 def is_tsc_available(node_modules_path):
@@ -37,19 +34,6 @@ def is_tsc_available(node_modules_path):
         return True
     print(f"StateMgmt: tsc not found at {tsc_path}")
     return False
-
-
-def run_npm_install(project_path):
-    secondary_npm_registry = "https://cmc.centralrepo.rnd.huawei.com/artifactory/api/npm/npm-central-repo/"
-    try:
-        subprocess.check_call(["npm", "install"])
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: npm install failed with exit code {e.returncode}. Retry with secondary registry...")
-        try:
-            subprocess.check_call(["npm", "install", "--registry", secondary_npm_registry, "--loglevel=verbose"])
-        except subprocess.CalledProcessError as e2:
-            print(f"Error: npm install retry failed: {e2.stderr}")
-            sys.exit(e2.returncode)
 
 
 def main(argv):
@@ -75,12 +59,11 @@ def main(argv):
     print(f"StateMgmt: Changing directory to {project_path}. Out dir = {js_output_path}")
     os.chdir(project_path)
 
-    # Check if `node_modules` exists. If yes skip npm install
-    if not os.path.exists(node_modules_path):
-        print(f"StateMgmt: node_modules directory not found at {node_modules_path}, running npm install")
-        run_npm_install(project_path)
-    else:
-        print(f"StateMgmt: node_modules directory exists at {node_modules_path}")
+    # Verify tsc is available (npm install should have been handled by GN)
+    if not is_tsc_available(node_modules_path):
+        print(f"Error: tsc not found at {node_modules_path}/typescript/lib/tsc.js")
+        print("The npm_install_guard GN action should have handled this.")
+        sys.exit(1)
 
     # Determine the npm script to run. Currently only build_release supported.
     script = "build_release"
@@ -89,19 +72,9 @@ def main(argv):
     try:
         subprocess.check_call(["npm", "run", script])
     except subprocess.CalledProcessError as e:
-        if not is_tsc_available(node_modules_path):
-            print(f"Warning: npm run {script} failed and tsc is missing. Retrying npm install...")
-            run_npm_install(project_path)
-            try:
-                subprocess.check_call(["npm", "run", script])
-            except subprocess.CalledProcessError as e2:
-                print(f"Error: npm run {script} failed with exit code {e2.returncode}.")
-                print("Error: State management build failed. See log output for failing .ts files")
-                sys.exit(e2.returncode)
-        else:
-            print(f"Error: npm run {script} failed with exit code {e.returncode}.")
-            print("Error: State management build failed. See log output for failing .ts files")
-            sys.exit(e.returncode)
+        print(f"Error: npm run {script} failed with exit code {e.returncode}.")
+        print("Error: State management build failed. See log output for failing .ts files")
+        sys.exit(e.returncode)
 
     source_folder = "distRelease"
     built_file = os.path.join(project_path, source_folder, "stateMgmt.js")
@@ -118,7 +91,12 @@ def main(argv):
 
     try:
         shutil.copy(built_file, output_file)
-        print(f"StateMgmt: File successfully copied to {output_file}")
+        # Validate: output must be at least 100 KB (empty/stale file is ~3 bytes)
+        output_size = os.path.getsize(output_file)
+        if output_size < 100000:
+            print(f"Error: stateMgmt.js is too small ({output_size} bytes). Build may have failed silently.")
+            sys.exit(1)
+        print(f"StateMgmt: File successfully copied to {output_file} ({output_size} bytes)")
     except Exception as e:
         print(f"Error: Failed to copy file: {e}")
         sys.exit(1)
