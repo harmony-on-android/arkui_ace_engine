@@ -1179,18 +1179,13 @@ void TextFieldPattern::UpdateCaretInfoToController(bool forceUpdate)
 {
     CHECK_NULL_VOID(HasFocus());
 #if defined(CROSS_PLATFORM)
-#if defined(IOS_PLATFORM)
-    if (editingValue_ && editingValue_->selection.IsValid() &&
-        editingValue_->selection.GetEnd() < selectController_->GetCaretIndex()) {
-#else
-    if (editingValue_ && editingValue_->selection.IsValid() &&
-        editingValue_->selection.GetEnd() < selectController_->GetCaretIndex() && !editingValue_->appendText.empty()) {
-#endif
-        SetCaretPosition(editingValue_->selection.GetEnd());
-    }
-    if (editingValue_ && editingValue_->selection.IsValid()) {
-
-        editingValue_->selection.Update(-1);
+    // Recalculate caret rect and trigger full measure+layout+render cycle.
+    // Without this, the cursor stays at the initial position after IME input.
+    selectController_->MoveCaretToContentRect(
+        selectController_->GetCaretIndex(), TextAffinity::DOWNSTREAM, true, true);
+    auto host = GetHost();
+    if (host) {
+        host->MarkDirtyNode(PROPERTY_UPDATE_MEASURE_SELF_AND_PARENT);
     }
 #endif
 

@@ -47,8 +47,6 @@ void TextSelectController::UpdateCaretIndex(int32_t index)
     TAG_LOGD(AceLogTag::ACE_TEXT_FIELD, "newIndex change to %{public}d", newIndex);
     firstHandleInfo_.index = newIndex;
     secondHandleInfo_.index = newIndex;
-    // Update caret rect to reflect the new index position.
-    // Without this the cursor stays at the initial (empty) position.
     caretInfo_.rect = GetCaretRectByIndex(newIndex, TextAffinity::DOWNSTREAM);
 }
 
