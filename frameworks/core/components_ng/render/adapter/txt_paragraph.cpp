@@ -738,6 +738,11 @@ bool TxtParagraph::IsIndexInEmoji(int32_t index, int32_t& emojiStart, int32_t& e
     if (!GetWordBoundary(index, start, end)) {
         return false;
     }
+    // An emoji grapheme cluster spans at least 2 UTF-16 code units.
+    // If end <= index, the word boundary is invalid (e.g. end=0 from GetWordBoundary).
+    if (end <= index) {
+        return false;
+    }
     std::vector<RectF> selectedRects;
     // if index in emoji or the first or the last, selectedRects is empty and
     // 'end' will be emoji's end index or 0 or the max index.
