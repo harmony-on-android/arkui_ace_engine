@@ -256,6 +256,8 @@ template("declarative_js_engine") {
       ":statemanagement",
       ":windowsizelayoutbreakpoint",
       ":settings",
+      ":fileio",
+      ":environment",
       "ark_node:x_node",
       "ark_theme/theme_manager:ark_theme",
       "engine/$engine_path:declarative_js_engine_bridge_${engine_name}_$platform",
@@ -792,6 +794,8 @@ template("declarative_js_engine_ng") {
       ":statemanagement",
       ":windowsizelayoutbreakpoint",
       ":settings",
+      ":fileio",
+      ":environment",
       "ark_node:x_node",
       "ark_theme/theme_manager:ark_theme",
       "engine/$engine_path:declarative_js_engine_bridge_${engine_name}_$platform",
@@ -1323,6 +1327,24 @@ ohos_abc("shape") {
 ohos_abc("settings") {
   sources = [ "engine/jsSettings.js" ]
   output_name = "settings"
+  install_images = [ "system" ]
+  module_install_dir = "etc/abc/arkui"
+  subsystem_name = ace_engine_subsystem
+  part_name = ace_engine_part
+}
+
+ohos_abc("fileio") {
+  sources = [ "//plugins/file/fileio/fileio.js" ]
+  output_name = "fileio"
+  install_images = [ "system" ]
+  module_install_dir = "etc/abc/arkui"
+  subsystem_name = ace_engine_subsystem
+  part_name = ace_engine_part
+}
+
+ohos_abc("environment") {
+  sources = [ "//plugins/file/environment/environment.js" ]
+  output_name = "environment"
   install_images = [ "system" ]
   module_install_dir = "etc/abc/arkui"
   subsystem_name = ace_engine_subsystem
