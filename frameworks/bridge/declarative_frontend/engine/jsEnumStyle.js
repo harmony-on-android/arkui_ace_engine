@@ -5414,3 +5414,16 @@ let EdgeLightPosition;
   EdgeLightPosition[EdgeLightPosition.LEFT = 6] = 'LEFT';
   EdgeLightPosition[EdgeLightPosition.RIGHT = 7] = 'RIGHT';
 })(EdgeLightPosition || (EdgeLightPosition = {}));
+
+// ArkUI-X CROSS_PLATFORM: make global ES values accessible via globalThis
+// so the @ohos.arkui.component bridge module (plugins/arkui/component/)
+// can read them and re-export as named module exports.
+if (typeof console !== 'undefined' && console.log) {
+    console.log("HOA-DEBUG jsEnumStyle: typeof BottomTabBarStyle=" + typeof BottomTabBarStyle);
+}
+globalThis.BottomTabBarStyle = BottomTabBarStyle;
+globalThis.SubTabBarStyle = SubTabBarStyle;
+
+if (typeof console !== 'undefined' && console.log) {
+    console.log("HOA-DEBUG jsEnumStyle: globalThis.BottomTabBarStyle set, type=" + typeof globalThis.BottomTabBarStyle);
+}
