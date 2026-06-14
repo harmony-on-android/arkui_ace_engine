@@ -14,6 +14,7 @@
 import("//build/ohos.gni")
 import("//build/templates/abc/ohos_abc.gni")
 import("//foundation/arkui/ace_engine/ace_config.gni")
+import("//plugins/plugin_lib.gni")
 import("//foundation/arkui/ace_engine/build/ace_ext.gni")
 import("//foundation/arkui/ace_engine/build/ace_gen_obj.gni")
 import(
@@ -239,16 +240,13 @@ template("declarative_js_engine") {
       ":withenv",
       ":statemanagement",
       ":windowsizelayoutbreakpoint",
-      "//plugins/settings:settings",
-      "//plugins/file/fileio:fileio",
-      "//plugins/file/environment:environment",
-      "//plugins/form/formInfo:formInfo",
       "ark_node:x_node",
       "ark_theme/theme_manager:ark_theme",
       "engine/$engine_path:declarative_js_engine_bridge_${engine_name}_$platform",
       "ark_component/components:module_group",
       ":uicontext"
     ]
+    deps += common_abc_plugins
 
     configs = [ "$ace_root:ace_config" ]
     if (ace_engine_feature_enable_point_light) {
@@ -778,16 +776,13 @@ template("declarative_js_engine_ng") {
       ":withenv",
       ":statemanagement",
       ":windowsizelayoutbreakpoint",
-      "//plugins/settings:settings",
-      "//plugins/file/fileio:fileio",
-      "//plugins/file/environment:environment",
-      "//plugins/form/formInfo:formInfo",
       "ark_node:x_node",
       "ark_theme/theme_manager:ark_theme",
       "engine/$engine_path:declarative_js_engine_bridge_${engine_name}_$platform",
       "ark_component/components:module_group",
       ":uicontext"
     ]
+    deps += common_abc_plugins
 
     configs = [ "$ace_root:ace_config" ]
 
